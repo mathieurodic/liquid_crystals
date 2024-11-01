@@ -2,6 +2,8 @@
 
 A Python package for simulating and visualizing liquid crystal behavior under various field conditions.
 
+![Image](./screenshot.png)
+
 ## Features
 
 - Simulate liquid crystal molecular orientation dynamics
