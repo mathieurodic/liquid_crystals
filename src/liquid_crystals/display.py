@@ -26,7 +26,8 @@ class Display:
     def __init__(self, 
                  lc: 'LC',  # Forward reference to LC class
                  fps: int = 25,
-                 cmap: Literal['twilight', 'baw', 'hsv', 'twilight_shifted', 'special'] = 'special',
+                 cmap: Literal['twilight', 'baw', 'baw2', 'hsv', 'twilight_shifted', 'special'] = 'special',
+                 show_field: bool = True,
                  resolution: int = 32):
         """
         Initialize the display handler.
@@ -40,7 +41,11 @@ class Display:
         self.fps = fps
 
         if cmap == 'baw':
-            cmap_scale = 0.5 - 0.5 * numpy.cos(numpy.linspace(0, 2 * numpy.pi, 255))
+            cmap_scale = 0.5 - 0.5 * numpy.cos(numpy.linspace(0, 2 * numpy.pi, 256))
+            cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+                'Cyclic grayscale', numpy.stack((cmap_scale,) * 3, axis=-1))
+        elif cmap == 'baw2':
+            cmap_scale = 0.5 - 0.5 * numpy.cos(numpy.linspace(0, 4 * numpy.pi, 512))
             cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
                 'Cyclic grayscale', numpy.stack((cmap_scale,) * 3, axis=-1))
         elif cmap == 'special':
@@ -67,7 +72,9 @@ class Display:
         colorbar.ax.set_yticklabels(['0', 'π/2', 'π'])
 
         # Setup field visualization
-        self._setup_field_visualization(resolution)
+        self.show_field = show_field
+        if self.show_field:
+            self._setup_field_visualization(resolution)
 
     def _setup_field_visualization(self, resolution):
         """Set up the field visualization quiver plot."""
@@ -105,7 +112,10 @@ class Display:
                 N=256
             ),
             scale=resolution,
-            pivot='middle')
+            pivot='middle',
+            headlength=0,
+            width=.003,
+            headwidth=.003)
 
     def animate(self, i: int) -> List:
         """
@@ -118,7 +128,7 @@ class Display:
             list: List of artists to update.
         """
         self.image.set_array(self.lc.angles % numpy.pi)
-        return [self.image, self.quiver]
+        return [self.image, self.quiver] if self.show_field else [self.image]
         
     def start(self, animate: bool = True):
         """

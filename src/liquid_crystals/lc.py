@@ -36,8 +36,8 @@ class LC:
             radius (int, optional): Interaction radius for neighbor effects. Defaults to 1.
         """
         self.fields = []
-        self.angles = numpy.random.uniform(low = 0.0,
-                                           high = 2.0 * numpy.pi,
+        self.angles = numpy.random.uniform(low = -numpy.pi,
+                                           high = +numpy.pi,
                                            size = (height, width),
                                            ).astype(dtype)
         self.speeds = numpy.zeros(shape=(height, width), dtype=dtype)
@@ -53,7 +53,7 @@ class LC:
                 dj = j - radius
                 self.accelerations_filter[i][j] = 1.0 / (di * di + dj * dj)
         self.accelerations_filter /= numpy.sum(self.accelerations_filter)
-        self.accelerations_filter[radius][radius] = -1.0
+        self.accelerations_filter[radius][radius] = 0
         self.is_running = False
         self._simulate_total_field()
 
@@ -90,7 +90,7 @@ class LC:
         """
         for i in range(count):
             angle_c = numpy.pi * random.random()
-            angle_f = random.randrange(-1, 3)
+            angle_f = random.choice((-1, -0.5, 0, 0.5, 1, 2))
             center_i = random.randrange(self.angles.shape[0])
             center_j = random.randrange(self.angles.shape[1])
             intensity = 4. * random.random()
@@ -119,11 +119,12 @@ class LC:
     def simulate(self, 
                 threaded: bool,
                 n: Optional[int] = None,
-                neighbours_influence: float = 0.05,
+                neighbours_influence: float = 0.01,
                 field_influence: float = 0.8,
                 dt: float = 1.0,
-                viscosity_halftime: float = 5000,
-                viscosity_start: float = 0.01):
+                viscosity_halftime: float = 200000,
+                viscosity_start: float = 0.1,
+                viscosity_end: float = 0.5):
         """
         Run the simulation.
         
@@ -152,7 +153,8 @@ class LC:
             print(f'simulate {index}', end='\r')
             self._simulate_step(index=index, neighbours_influence=neighbours_influence,
                                field_influence=field_influence, dt=dt,
-                               viscosity_halftime=viscosity_halftime, viscosity_start=viscosity_start)
+                               viscosity_halftime=viscosity_halftime, viscosity_start=viscosity_start,
+                               viscosity_end=viscosity_end)
         print()
 
     def _simulate_step(self,
@@ -161,7 +163,8 @@ class LC:
                       field_influence: float,
                       dt: float,
                       viscosity_halftime: float,
-                      viscosity_start: float):
+                      viscosity_start: float,
+                      viscosity_end: float):
         """
         Perform a single simulation step.
         
@@ -174,17 +177,19 @@ class LC:
             viscosity_start (float): Initial viscosity ratio.
         """
         # Calculate viscosity
-        viscosity_max = 1.0 / dt
+        viscosity_max = viscosity_end / dt
         viscosity_min = viscosity_max * viscosity_start
-        viscosity = viscosity_min + viscosity_max * (index / viscosity_halftime) / (1.0 + index / viscosity_halftime)
+        viscosity = viscosity_min + (viscosity_max - viscosity_min) * (index / viscosity_halftime) / (1.0 + index / viscosity_halftime)
 
         # Calculate neighbor effects
-        neighbours_angles_deltas = scipy.signal.convolve2d(
-            in1=self.angles,
+        angles_as_complex = numpy.exp(2 * 1j * self.angles)
+        convolved_angles_as_complex = scipy.signal.convolve2d(
+            in1=angles_as_complex,
             in2=self.accelerations_filter,
             mode='same'
         )
-        neighbours_accelerations = numpy.sin(2.0 * neighbours_angles_deltas)
+        average_angles = numpy.angle(convolved_angles_as_complex) / 2
+        neighbours_accelerations = numpy.sin(2.0 * (average_angles - self.angles))
 
         # Calculate field effects
         field_angles_deltas = self.total_field[0] - self.angles
@@ -192,11 +197,10 @@ class LC:
         
         # Combine all effects
         accelerations = neighbours_influence * neighbours_accelerations + field_influence * field_accelerations
-        accelerations -= viscosity * self.speeds
+        accelerations -= viscosity * (self.speeds + viscosity * numpy.abs(self.speeds))
 
         # Update speeds and angles
         self.speeds += accelerations * dt
-        self.speeds[numpy.abs(self.speeds) > (numpy.pi / 2) / dt] /= 2.0
         self.angles += self.speeds * dt
         self.angles %= numpy.pi
         
