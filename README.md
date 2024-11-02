@@ -2,7 +2,7 @@
 
 A Python package for simulating and visualizing liquid crystal behavior under various field conditions.
 
-![Image](./screenshot.png)
+![Image](./screenshot.jpg)
 
 ## Features
 
