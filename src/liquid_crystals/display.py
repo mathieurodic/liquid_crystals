@@ -26,8 +26,7 @@ class Display:
     def __init__(self, 
                  lc: 'LC',  # Forward reference to LC class
                  fps: int = 25,
-                 scale: float = 1,
-                 cmap: Literal['twilight', 'baw', 'hsv', 'twilight_shifted'] = 'twilight',
+                 cmap: Literal['twilight', 'baw', 'hsv', 'twilight_shifted', 'special'] = 'special',
                  resolution: int = 32):
         """
         Initialize the display handler.
@@ -35,14 +34,26 @@ class Display:
         Args:
             lc: Liquid crystal simulation instance to visualize.
             fps (int, optional): Frames per second for animation. Defaults to 25.
-            scale (float, optional): Display scale factor. Defaults to 1.
             cmap (str, optional): Color map to use. Defaults to 'twilight'.
             resolution (int, optional): Grid resolution for field visualization. Defaults to 32.
         """
+        self.fps = fps
+
         if cmap == 'baw':
             cmap_scale = 0.5 - 0.5 * numpy.cos(numpy.linspace(0, 2 * numpy.pi, 255))
             cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
                 'Cyclic grayscale', numpy.stack((cmap_scale,) * 3, axis=-1))
+        elif cmap == 'special':
+            cmap_scale = []
+            black = numpy.array((0,0,0), dtype=numpy.float32)
+            gradient = 0.5 - 0.5 * numpy.cos(numpy.linspace(0, 2 * numpy.pi, 256))
+            for color in [(1,0,0),(1,1,0),(0,1,0),(0,0,1)]:
+                color = numpy.array(color, dtype=numpy.float32)
+                cmap_color_scale = [value * color for value in gradient]
+                cmap_scale += cmap_color_scale
+            cmap_scale = cmap_scale[-128:] + cmap_scale[:-128]
+            cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+                'Special', cmap_scale)
 
         self.lc = lc
         self.grid_size = int(numpy.sqrt(lc.angles.shape[0] * lc.angles.shape[1]) / resolution)
@@ -90,7 +101,7 @@ class Display:
             X, Y, U, V, C,
             cmap=matplotlib.colors.LinearSegmentedColormap.from_list(
                 'custom', 
-                [(0.25,0.25,0.25,0.7), (0.25,0.25,0.1,0.1)], 
+                [(0.5,0.5,0.5,0.8), (0.5,0.5,0.5,0.1)], 
                 N=256
             ),
             scale=resolution,
@@ -120,7 +131,7 @@ class Display:
             anim = matplotlib.animation.FuncAnimation(
                 self.fig, 
                 self.animate, 
-                interval=20, 
+                interval=1000/self.fps,
                 blit=True, 
                 cache_frame_data=False
             )

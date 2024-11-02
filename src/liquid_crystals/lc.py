@@ -227,7 +227,6 @@ class LC:
         display = Display(
             lc=self,
             fps=fps,
-            scale=scale,
             cmap=cmap,
             resolution=resolution
         )
