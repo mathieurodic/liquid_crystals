@@ -20,6 +20,15 @@ pip install liquid-crystals
 
 ## Quick Start
 
+From command line:
+
+```bash
+lc --help
+lc
+```
+
+In a Python script:
+
 ```python
 from liquid_crystals import LC
 
