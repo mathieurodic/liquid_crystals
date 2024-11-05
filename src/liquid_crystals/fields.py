@@ -6,11 +6,11 @@ the liquid crystal behavior. Each field generator is a function that returns
 another function calculating field values at given coordinates.
 """
 
-import numpy
+import numpy as np
 from typing import Callable, Tuple
 
 # Type alias for field functions
-FieldFunction = Callable[[numpy.ndarray, numpy.ndarray], numpy.ndarray]
+FieldFunction = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 def Uniform(value: float) -> FieldFunction:
     """
@@ -26,7 +26,7 @@ def Uniform(value: float) -> FieldFunction:
         >>> field_func = Uniform(1.0)
         >>> result = field_func(i_coords, j_coords)  # Returns array of 1.0s
     """
-    def function(i: numpy.ndarray, j: numpy.ndarray) -> numpy.ndarray:
+    def function(i: np.ndarray, j: np.ndarray) -> np.ndarray:
         return value
     return function
     
@@ -46,10 +46,13 @@ def InverseSquareDistance(center_i: int, center_j: int, value: float) -> FieldFu
         >>> field_func = InverseSquareDistance(10, 10, 2.0)
         >>> result = field_func(i_coords, j_coords)
     """
-    def function(i: numpy.ndarray, j: numpy.ndarray) -> numpy.ndarray:
+    def function(i: np.ndarray, j: np.ndarray) -> np.ndarray:
         di = i - center_i
         dj = j - center_j
-        result = value / (di * di + dj * dj)
+        try:
+            result = value / (di * di + dj * dj + 1e-9)
+        except RuntimeWarning:
+            pass
         result[center_i][center_j] = value
         return result
     return function
@@ -70,10 +73,10 @@ def InverseDistance(center_i: int, center_j: int, value: float) -> FieldFunction
         >>> field_func = InverseDistance(10, 10, 2.0)
         >>> result = field_func(i_coords, j_coords)
     """
-    def function(i: numpy.ndarray, j: numpy.ndarray) -> numpy.ndarray:
+    def function(i: np.ndarray, j: np.ndarray) -> np.ndarray:
         di = i - center_i
         dj = j - center_j
-        result = value / numpy.hypot(di, dj)
+        result = value / np.hypot(di, dj)
         result[center_i][center_j] = value
         return result
     return function
@@ -92,11 +95,11 @@ def Angle(center_i: int, center_j: int, constant: float = 0.0, factor: float = 1
         callable: A function that calculates angular field values.
     
     Example:
-        >>> field_func = Angle(10, 10, constant=numpy.pi/4)
+        >>> field_func = Angle(10, 10, constant=np.pi/4)
         >>> result = field_func(i_coords, j_coords)
     """
-    def function(i: numpy.ndarray, j: numpy.ndarray) -> numpy.ndarray:
+    def function(i: np.ndarray, j: np.ndarray) -> np.ndarray:
         di = i - center_i
         dj = j - center_j
-        return constant + factor * numpy.angle(di + 1j * dj)
+        return constant + factor * np.angle(di + 1j * dj)
     return function

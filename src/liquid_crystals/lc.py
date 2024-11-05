@@ -6,7 +6,7 @@ modeling the behavior of liquid crystal molecules under various field conditions
 and neighbor interactions.
 """
 
-import numpy
+import numpy as np
 import scipy.signal
 import threading
 import random
@@ -25,26 +25,26 @@ class LC:
     handling molecular orientations, field effects, and neighbor interactions.
     """
 
-    def __init__(self, width, height, dtype=numpy.float32, radius=1):
+    def __init__(self, width, height, dtype=np.float32, radius=1):
         """
         Initialize liquid crystal simulation.
         
         Args:
             width (int): Width of the simulation grid.
             height (int): Height of the simulation grid.
-            dtype (numpy.dtype, optional): Data type for calculations. Defaults to numpy.float32.
+            dtype (np.dtype, optional): Data type for calculations. Defaults to np.float32.
             radius (int, optional): Interaction radius for neighbor effects. Defaults to 1.
         """
         self.fields = []
-        self.angles = numpy.random.uniform(low = -numpy.pi,
-                                           high = +numpy.pi,
+        self.angles = np.random.uniform(low = -np.pi,
+                                           high = +np.pi,
                                            size = (height, width),
                                            ).astype(dtype)
-        self.speeds = numpy.zeros(shape=(height, width), dtype=dtype)
+        self.speeds = np.zeros(shape=(height, width), dtype=dtype)
         
         # Setup acceleration filter
         size = 2 * radius + 1
-        self.accelerations_filter = numpy.zeros((size, size), dtype=dtype)
+        self.accelerations_filter = np.zeros((size, size), dtype=dtype)
         for i in range(size):
             for j in range(size):
                 if i == radius and j == radius:
@@ -52,7 +52,7 @@ class LC:
                 di = i - radius
                 dj = j - radius
                 self.accelerations_filter[i][j] = 1.0 / (di * di + dj * dj)
-        self.accelerations_filter /= numpy.sum(self.accelerations_filter)
+        self.accelerations_filter /= np.sum(self.accelerations_filter)
         self.accelerations_filter[radius][radius] = 0
         self.is_running = False
         self._simulate_total_field()
@@ -89,7 +89,7 @@ class LC:
             count (int): Number of random fields to add.
         """
         for i in range(count):
-            angle_c = numpy.pi * random.random()
+            angle_c = np.pi * random.random()
             angle_f = random.choice((-1, -0.5, 0, 0.5, 1, 2))
             center_i = random.randrange(self.angles.shape[0])
             center_j = random.randrange(self.angles.shape[1])
@@ -106,15 +106,15 @@ class LC:
     def _simulate_total_field(self):
         """Calculate the total field from all individual fields."""
         shape, dtype = self.angles.shape, self.angles.dtype
-        indices = numpy.indices(shape, dtype)
-        result = numpy.zeros(shape, numpy.complex64)
+        indices = np.indices(shape, dtype)
+        result = np.zeros(shape, np.complex64)
         for angle_function, strength_function in self.fields:
             angle = angle_function(indices[0], indices[1])
             strength = strength_function(indices[0], indices[1])
-            result += strength * numpy.exp(1j * angle)
-        result_angle = numpy.angle(result).astype(dtype)
-        result_angle[result_angle < 0] += numpy.pi
-        self.total_field = result_angle, numpy.absolute(result).astype(dtype)
+            result += strength * np.exp(1j * angle)
+        result_angle = np.angle(result).astype(dtype)
+        result_angle[result_angle < 0] += np.pi
+        self.total_field = result_angle, np.absolute(result).astype(dtype)
 
     def simulate(self, 
                 threaded: bool,
@@ -122,8 +122,8 @@ class LC:
                 neighbours_influence: float = 0.01,
                 field_influence: float = 0.8,
                 dt: float = 1.0,
-                viscosity_halftime: float = 200000,
-                viscosity_start: float = 0.1,
+                viscosity_halftime: float = 4000,
+                viscosity_start: float = 0.01,
                 viscosity_end: float = 0.5):
         """
         Run the simulation.
@@ -182,32 +182,32 @@ class LC:
         viscosity = viscosity_min + (viscosity_max - viscosity_min) * (index / viscosity_halftime) / (1.0 + index / viscosity_halftime)
 
         # Calculate neighbor effects
-        angles_as_complex = numpy.exp(2 * 1j * self.angles)
+        angles_as_complex = np.exp(2 * 1j * self.angles)
         convolved_angles_as_complex = scipy.signal.convolve2d(
             in1=angles_as_complex,
             in2=self.accelerations_filter,
             mode='same'
         )
-        average_angles = numpy.angle(convolved_angles_as_complex) / 2
-        neighbours_accelerations = numpy.sin(2.0 * (average_angles - self.angles))
+        average_angles = np.angle(convolved_angles_as_complex) / 2
+        neighbours_accelerations = np.sin(2.0 * (average_angles - self.angles))
 
         # Calculate field effects
         field_angles_deltas = self.total_field[0] - self.angles
-        field_accelerations = self.total_field[1] * numpy.sin(2.0 * field_angles_deltas)
+        field_accelerations = self.total_field[1] * np.sin(2.0 * field_angles_deltas)
         
         # Combine all effects
         accelerations = neighbours_influence * neighbours_accelerations + field_influence * field_accelerations
-        accelerations -= viscosity * (self.speeds + viscosity * numpy.abs(self.speeds))
+        accelerations -= viscosity * (self.speeds + viscosity * np.abs(self.speeds))
 
         # Update speeds and angles
         self.speeds += accelerations * dt
         self.angles += self.speeds * dt
-        self.angles %= numpy.pi
+        self.angles %= np.pi
         
         # Apply boundary conditions
-        self.angles[0:2, 0:2] = numpy.pi / 2
+        self.angles[0:2, 0:2] = np.pi / 2
         self.angles[0] = self.angles[-1] = 0
-        self.angles[..., 0] = self.angles[..., -1] = numpy.pi / 2
+        self.angles[..., 0] = self.angles[..., -1] = np.pi / 2
         self.speeds[0] = self.speeds[-1] = self.speeds[..., 0] = self.speeds[..., -1] = 0
     
     def display(self,
